@@ -1,0 +1,14 @@
+/project-root
+├── index.js
+├── auth.js
+├── respon.js
+├── .env
+├── /config
+│   └── db.js
+├── /models
+│   └── user.js
+│   └── jadwal.js
+├── /controller
+│   └── jadwalController.js
+├── package.json
+└── /node_modules
