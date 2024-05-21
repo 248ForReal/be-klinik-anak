@@ -60,31 +60,6 @@ app.get('/logout', (req, res) => {
     respon(200, null, 'Logout berhasil', res);
 });
 
-const checkAdminRole = (req, res, next) => {
-    if (req.session.user && req.session.user.role === 'admin') {
-        next(); 
-    } else {
-        respon(403, null, 'Akses ditolak: Anda tidak memiliki izin admin', res);
-    }
-};
 
 
-const checkSuperAdminRole = (req, res, next) => {
-    if (req.session.user && req.session.user.role === 'SuperAdmin') {
-        next(); 
-    } else {
-        respon(403, null, 'Akses ditolak: Anda tidak memiliki izin SuperAdmin', res);
-    }
-};
-
-
-app.get('/admin', checkAdminRole, (req, res) => {
-    respon(200, null, 'Anda memiliki izin admin', res);
-});
-
-app.get('/superadmin', checkSuperAdminRole, (req, res) => {
-    respon(200, null, 'Anda memiliki izin SuperAdmin', res);
-});
-
-module.exports = { checkAdminRole, checkSuperAdminRole };
 module.exports = app;

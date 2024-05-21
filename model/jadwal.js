@@ -8,10 +8,10 @@ const antrianSchema = new Schema({
 });
 
 const jadwalSchema = new Schema({
-  nomor_id: { type: Number, required:true},
+  nomor_id: { type: Number, required: true },
   tanggal: { type: Date, required: true },
-  jam_pertama: { type: Date, required: true },
-  jam_kedua: { type: Date, required: true },
+  jam_buka: { type: Date, required: true },
+  jam_tutup: { type: Date }, // Tidak required, diisi saat jadwal ditutup
   antrian: [antrianSchema],
   createdAt: { type: Date, default: Date.now }
 }, {

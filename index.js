@@ -5,6 +5,7 @@ const session = require('express-session');
 const MongoStore = require('connect-mongo');
 const cookieParser = require('cookie-parser');
 require('dotenv').config();
+const jadwalRoutes = require('./routes/jadwalRoutes');
 
 const auth = require('./auth'); // Mengimpor rute auth
 
@@ -50,10 +51,8 @@ app.use(session({
 
 // Menggunakan rute auth
 app.use('/', auth);
+app.use('/api', jadwalRoutes);
 
-app.get('/', (req, res) => {
-    res.send('Selamat datang di aplikasi Express dengan MongoDB!');
-});
 
 app.listen(PORT, () => {
     console.log(`Server berjalan di port ${PORT}`);
