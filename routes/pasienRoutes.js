@@ -1,11 +1,24 @@
 const express = require('express');
 const router = express.Router();
-const { editPasien, hapusPasien } = require('../controller/pasienController');
+const { editPasien, 
+    hapusPasien,
+    tukarAntrianPasien, 
+    getAllAntrian,
+    getPatientCounts,
+    exportPasien,
+    getFinishedPatientsToday,
+    searchPatients } = require('../controller/pasienController');
 
-// Route untuk mengedit data pasien
+
 router.put('/pasien/:kode_unik', editPasien);
-
-// Route untuk menghapus data pasien
 router.delete('/pasien/:kode_unik', hapusPasien);
+router.post('/pasien/update', tukarAntrianPasien);
+router.get('/pasien', getAllAntrian);
+router.get('/pasien/jumlah', getPatientCounts);
+router.get('/pasien/selesai', getFinishedPatientsToday);
+router.get('/pasien/export', exportPasien);
+router.get('/pasien/search', searchPatients);
+
+
 
 module.exports = router;

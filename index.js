@@ -9,6 +9,7 @@ require('dotenv').config();
 const jadwalRoutes = require('./routes/jadwalRoutes');
 const antrianRoutes = require('./routes/AntrianRoutes');
 const PasienRoutes = require('./routes/pasienRoutes');
+const userRoutes = require('./routes/userRoutes');
 
 const auth = require('./auth'); // Mengimpor rute auth
 
@@ -62,6 +63,7 @@ app.use('/', auth);
 app.use('/api', jadwalRoutes);
 app.use('/api', antrianRoutes);
 app.use('/api', PasienRoutes);
+app.use('/api', userRoutes);
 
 
 

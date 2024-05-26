@@ -3,6 +3,7 @@
 ├── auth.js
 ├── respon.js
 ├── .env
+├── exports
 ├── /config
 │   └── db.js
 ├── /models
@@ -13,9 +14,12 @@
 │   └── jadwalController.js
 │   └── antrianController.js
 │   └── pasienController.js
+│   └── userController.js
 ├── /routes
 │   └── jadwalRoutes.js
 │   └── AntrianRoutes.js
+│   └── pasienRoutes.js
+│   └── userRoutes.js
 ├── /middleware
 │   └── chekin.js
 ├── package.json
