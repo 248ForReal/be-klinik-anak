@@ -25,4 +25,4 @@ const checkSuperAdminRole = (req, res, next) => {
     }
 };
 
-module.exports = { checkAdminRole, checkSuperAdminRole };
+module.exports = { checkAdminRole, checkSuperAdminRole, isLoggedIn };

@@ -9,7 +9,7 @@ const {
   addAntrian
 } = require('../controller/jadwalController');
 
-router.use('/jadwal', checkAdminRole);
+
 router.post('/jadwal', createJadwal, checkAdminRole);
 router.get('/jadwal', getAllJadwal);
 router.delete('/jadwal/:id', deleteJadwal);

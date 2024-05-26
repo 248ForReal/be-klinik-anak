@@ -8,7 +8,15 @@
 ├── /models
 │   └── user.js
 │   └── jadwal.js
+│   └── pasien.js
 ├── /controller
 │   └── jadwalController.js
+│   └── antrianController.js
+│   └── pasienController.js
+├── /routes
+│   └── jadwalRoutes.js
+│   └── AntrianRoutes.js
+├── /middleware
+│   └── chekin.js
 ├── package.json
 └── /node_modules

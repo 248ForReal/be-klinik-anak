@@ -11,8 +11,9 @@ const jadwalSchema = new Schema({
   nomor_id: { type: Number, required: true },
   tanggal: { type: Date, required: true },
   jam_buka: { type: Date, required: true },
-  jam_tutup: { type: Date }, // Tidak required, diisi saat jadwal ditutup
+  jam_tutup: { type: Date },
   antrian: [antrianSchema],
+  status: { type: String, enum: ['open', 'closed'], default: 'open' },
   createdAt: { type: Date, default: Date.now }
 }, {
   collection: 'jadwal'

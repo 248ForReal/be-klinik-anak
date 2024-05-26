@@ -1,11 +1,14 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const path = require('path');
+const cors = require('cors');
 const session = require('express-session');
 const MongoStore = require('connect-mongo');
 const cookieParser = require('cookie-parser');
 require('dotenv').config();
 const jadwalRoutes = require('./routes/jadwalRoutes');
+const antrianRoutes = require('./routes/AntrianRoutes');
+const PasienRoutes = require('./routes/pasienRoutes');
 
 const auth = require('./auth'); // Mengimpor rute auth
 
@@ -49,9 +52,17 @@ app.use(session({
     cookie: { secure: false } // Set ke true jika menggunakan HTTPS
 }));
 
+app.use(cors({
+    credentials: true,
+    origin: ['http://localhost:5173'] // Menambahkan origin localhost:5173
+}));
+
 // Menggunakan rute auth
 app.use('/', auth);
 app.use('/api', jadwalRoutes);
+app.use('/api', antrianRoutes);
+app.use('/api', PasienRoutes);
+
 
 
 app.listen(PORT, () => {
