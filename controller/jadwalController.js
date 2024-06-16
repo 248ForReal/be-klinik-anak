@@ -5,6 +5,14 @@ const moment = require('moment-timezone');
 const createJadwal = async (req, res) => {
   try {
     const { tanggal, jam_buka } = req.body;
+
+    // Periksa apakah masih ada jadwal dengan status 'open'
+    const openJadwal = await Jadwal.findOne({ status: 'open' });
+
+    if (openJadwal) {
+      return sendResponse(400, null, 'Masih ada jadwal yang berstatus open', res);
+    }
+
     const lastJadwal = await Jadwal.findOne().sort({ nomor_id: -1 }).exec();
     let nomor_id = 1;
     if (lastJadwal) {
