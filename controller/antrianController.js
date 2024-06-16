@@ -1,88 +1,9 @@
 const moment = require('moment-timezone');
-const User = require('../model/user');
 const Jadwal = require('../model/jadwal');
 const Patient = require('../model/pasien');
 const sendResponse = require('../respon');
 
-const regisAntrian = async (req, res, next) => {
-    try {
-        const { nama, umur, alamat, jenis_kelamin, no_wa, status } = req.body;
-
-        // Cek apakah ada jadwal yang tersedia dan statusnya 'open'
-        const jadwal = await Jadwal.findOne({ status: 'open' }).sort({ createdAt: -1 });
-
-        if (!jadwal) {
-            return sendResponse(400, null, 'Tidak ada jadwal yang tersedia atau jadwal sudah ditutup', res);
-        }
-
-        let nomorAntrian;
-
-        // Cek nomor antrian yang belum dimiliki oleh pasien lain
-        let nomorAntrianBelumDimiliki = null;
-        for (let i = 1; i <= jadwal.antrian.length + 1; i++) {
-            const existingPatient = await Patient.findOne({ nomor_antrian: i });
-            if (!existingPatient) {
-                nomorAntrianBelumDimiliki = i;
-                break;
-            }
-        }
-
-        // Jika ada nomor antrian yang belum dimiliki, gunakan nomor antrian tersebut
-        if (nomorAntrianBelumDimiliki) {
-            nomorAntrian = nomorAntrianBelumDimiliki;
-        } else {
-            // Jika tidak ada nomor antrian yang tersedia, tambahkan satu nomor antrian baru
-            nomorAntrian = jadwal.antrian.length + 1;
-        }
-
-        // Lanjutkan dengan proses pendaftaran antrian
-        const kodeUnik = await generateUniqueKodeUnik(nama);
-
-        const newPatient = new Patient({
-            nomor_antrian: nomorAntrian,
-            nama,
-            umur,
-            alamat,
-            jenis_kelamin,
-            no_wa,
-            kode_unik: kodeUnik,
-            status
-        });
-
-        // Tambahkan antrian baru ke jadwal jika nomor antrian baru
-        if (!nomorAntrianBelumDimiliki) {
-            const durasiAntrian = 20 * 60 * 1000;
-            const lastAntrian = jadwal.antrian[jadwal.antrian.length - 1];
-            const waktuMulai = lastAntrian
-                ? moment(lastAntrian.waktu_selesai).tz('Asia/Jakarta').toDate()
-                : moment(jadwal.jam_buka).tz('Asia/Jakarta').toDate();
-            const waktuSelesai = new Date(waktuMulai.getTime() + durasiAntrian);
-
-            jadwal.antrian.push({
-                waktu_mulai: waktuMulai,
-                waktu_selesai: waktuSelesai,
-                nomor_antrian: nomorAntrian
-            });
-
-            await jadwal.save();
-        }
-
-        const savedPatient = await newPatient.save();
-
-        req.session.patient = savedPatient;
-        res.cookie('patientId', savedPatient._id, { maxAge: 900000, httpOnly: true });
-
-        sendResponse(201, savedPatient, 'Pasien berhasil dibuat', res);
-    } catch (error) {
-        next(error);
-    }
-};
-
-
-
-
-
-// Generate Kode Unik
+// Function to generate a unique code based on the name
 const generateUniqueKodeUnik = async (nama) => {
     const namaSplit = nama.trim().split(' ');
     let kodeUnik = namaSplit.map(n => n[0]).join('').toUpperCase();
@@ -92,20 +13,112 @@ const generateUniqueKodeUnik = async (nama) => {
     }
     kodeUnik = kodeUnik.substring(0, 3);
 
-    const existingPatient = await Patient.findOne({ kode_unik: kodeUnik });
-    if (existingPatient) {
-        return generateUniqueKodeUnik(nama + 'X');
+    let suffix = 1;
+    let originalKodeUnik = kodeUnik;
+
+    while (await Patient.findOne({ kode_unik: kodeUnik })) {
+        kodeUnik = originalKodeUnik + suffix;
+        suffix++;
     }
 
     return kodeUnik;
 };
 
-let timer;
-let stopwatchTimer;
-let sisaWaktu = 0;
-let lastElapsedTime = 0;
+const regisAntrian = async (req, res, next) => {
+    try {
+        const { nama, umur, alamat, jenis_kelamin, no_wa, status } = req.body;
 
-// Update Waktu Pasien
+        // Check if there's an available schedule with status 'open'
+        const jadwal = await Jadwal.findOne({ status: 'open' }).sort({ createdAt: -1 });
+
+        if (!jadwal) {
+            return sendResponse(400, null, 'Tidak ada jadwal yang tersedia atau jadwal sudah ditutup', res);
+        }
+
+        // Check if the phone number already exists
+        const existingPatientByNoWa = await Patient.findOne({ no_wa });
+        if (existingPatientByNoWa) {
+            return sendResponse(400, null, 'Nomor WhatsApp sudah digunakan.', res);
+        }
+
+        // Determine the next available queue number
+        const takenNumbers = (await Patient.find({})).map(p => p.nomor_antrian);
+        let availableAntrian = jadwal.antrian.find(antrian => !takenNumbers.includes(antrian.nomor_antrian));
+        let nomor_antrian, waktu_mulai, waktu_selesai;
+
+        if (availableAntrian) {
+            nomor_antrian = availableAntrian.nomor_antrian;
+            waktu_mulai = availableAntrian.waktu_mulai;
+            waktu_selesai = availableAntrian.waktu_selesai;
+        } else {
+            // Calculate the start and end time for the new appointment
+            const durasiAntrian = 20 * 60 * 1000;
+            const lastAntrian = jadwal.antrian[jadwal.antrian.length - 1];
+            waktu_mulai = lastAntrian ? new Date(lastAntrian.waktu_selesai.getTime()) : new Date(jadwal.jam_buka);
+            waktu_selesai = new Date(waktu_mulai.getTime() + durasiAntrian);
+
+            // Validate that the new appointment time is within working hours
+            const jamTutup = jadwal.jam_tutup ? new Date(jadwal.jam_tutup) : null;
+            if (jamTutup && waktu_selesai > jamTutup) {
+                return sendResponse(400, null, 'Waktu antrian melebihi jam tutup', res);
+            }
+
+            // Determine the next queue number
+            nomor_antrian = jadwal.antrian.length + 1;
+
+            // Add new appointment to the schedule
+            jadwal.antrian.push({
+                waktu_mulai,
+                waktu_selesai,
+                nomor_antrian
+            });
+        }
+
+        // Generate a unique code for the patient
+        const kodeUnik = await generateUniqueKodeUnik(nama);
+
+        const newPatient = new Patient({
+            nomor_antrian,
+            nama,
+            umur,
+            alamat,
+            jenis_kelamin,
+            no_wa,
+            kode_unik: kodeUnik,
+            status
+        });
+
+        await jadwal.save();
+        const savedPatient = await newPatient.save();
+
+        req.session.patient = savedPatient;
+        res.cookie('patientId', savedPatient._id, { maxAge: 900000, httpOnly: true });
+
+        const response = {
+            nama: savedPatient.nama,
+            umur: savedPatient.umur,
+            alamat: savedPatient.alamat,
+            jenis_kelamin: savedPatient.jenis_kelamin,
+            no_wa: savedPatient.no_wa,
+            nomor_antrian: savedPatient.nomor_antrian,
+            kode_unik: savedPatient.kode_unik,
+            status: savedPatient.status,
+            waktu_mulai: moment(waktu_mulai).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm:ss'),
+            waktu_selesai: moment(waktu_selesai).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm:ss'),
+            _id: savedPatient._id,
+            createdAt: savedPatient.createdAt,
+            updatedAt: savedPatient.updatedAt,
+            __v: savedPatient.__v
+        };
+
+        sendResponse(201, response, 'Pasien berhasil dibuat', res);
+    } catch (error) {
+        next(error);
+    }
+};
+
+
+// Update patient appointment times
 const updateWaktuPasien = async (currentAntrian) => {
     try {
         const patientsMenunggu = await Patient.find({ status: 'menunggu' }).sort({ nomor_antrian: 1 });
@@ -132,6 +145,10 @@ const updateWaktuPasien = async (currentAntrian) => {
     }
 };
 
+let timer;
+let stopwatchTimer;
+let sisaWaktu = 0;
+let lastElapsedTime = 0;
 
 const mulai_antrian = async (req, res, next) => {
     try {
@@ -171,12 +188,13 @@ const mulai_antrian = async (req, res, next) => {
 
             sisaWaktu = durasiWaktu;
 
-            timer = setInterval(() => {
+            timer = setInterval(async () => {
                 if (sisaWaktu <= 0) {
                     clearInterval(timer);
                     console.log("Timer selesai");
 
-                    patient.save().then(() => {
+                    try {
+                        await patient.save();
                         console.log("Memulai stopwatch");
 
                         let elapsedTime = 0;
@@ -190,9 +208,9 @@ const mulai_antrian = async (req, res, next) => {
                                 console.log("Stopwatch selesai");
                             }
                         }, 1000);
-                    }).catch(err => {
+                    } catch (err) {
                         console.error("Gagal menyimpan perubahan status:", err);
-                    });
+                    }
                 } else {
                     console.log(`Sisa waktu: ${sisaWaktu} detik`);
                     sisaWaktu--;
@@ -225,34 +243,7 @@ const mulai_antrian = async (req, res, next) => {
     }
 };
 
-
-const otomatisMulaiAntrianPertama = async () => {
-    try {
-        const patient = await Patient.findOne({ nomor_antrian: 1, status: 'menunggu' });
-        if (patient) {
-            const jadwal = await Jadwal.findOne({ 'antrian.nomor_antrian': 1 });
-
-            if (jadwal) {
-                const antrian = jadwal.antrian.find(item => item.nomor_antrian === 1);
-
-                const waktuMulai = moment().tz('Asia/Jakarta').toDate();
-                const waktuSelesai = new Date(waktuMulai.getTime() + 20 * 60 * 1000);
-
-                antrian.waktu_mulai = waktuMulai;
-                antrian.waktu_selesai = waktuSelesai;
-                await jadwal.save();
-
-                patient.status = 'mulai';
-                await patient.save();
-
-                console.log('Antrian nomor 1 otomatis dimulai');
-            }
-        }
-    } catch (error) {
-        console.error('Gagal memulai antrian nomor 1 otomatis:', error);
-    }
-};
-
+// Function to get all queue data
 const getAllAntrian = async (req, res, next) => {
     try {
         const jadwal = await Jadwal.findOne().sort({ createdAt: -1 }).lean();
@@ -280,6 +271,7 @@ const getAllAntrian = async (req, res, next) => {
     }
 };
 
+// Function to get queue position for a given WhatsApp number
 const antrianBerapa = async (req, res, next) => {
     const { no_wa } = req.params;
 
@@ -287,11 +279,7 @@ const antrianBerapa = async (req, res, next) => {
         const dataPasien = await Patient.findOne({ no_wa });
 
         if (dataPasien) {
-            let antrianBerapaLagi = dataPasien.nomor_antrian;
-
-            if (antrianBerapaLagi === 1) {
-                antrianBerapaLagi = 1;
-            }
+            const antrianBerapaLagi = dataPasien.nomor_antrian;
 
             const response = {
                 no_wa,
@@ -306,11 +294,6 @@ const antrianBerapa = async (req, res, next) => {
         next(err);
     }
 };
-
-
-
-
-
 
 module.exports = {
     mulai_antrian,
