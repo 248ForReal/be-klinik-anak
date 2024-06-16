@@ -35,14 +35,14 @@ const regisAntrian = async (req, res, next) => {
             return sendResponse(400, null, 'Tidak ada jadwal yang tersedia atau jadwal sudah ditutup', res);
         }
 
-        // Check if the phone number already exists
-        const existingPatientByNoWa = await Patient.findOne({ no_wa });
+        // Check if the phone number already exists for the same schedule
+        const existingPatientByNoWa = await Patient.findOne({ no_wa, jadwal: jadwal._id });
         if (existingPatientByNoWa) {
-            return sendResponse(400, null, 'Nomor WhatsApp sudah digunakan.', res);
+            return sendResponse(400, null, 'Nomor WhatsApp sudah digunakan untuk jadwal ini.', res);
         }
 
         // Determine the next available queue number
-        const takenNumbers = (await Patient.find({})).map(p => p.nomor_antrian);
+        const takenNumbers = (await Patient.find({ jadwal: jadwal._id })).map(p => p.nomor_antrian);
         let availableAntrian = jadwal.antrian.find(antrian => !takenNumbers.includes(antrian.nomor_antrian));
         let nomor_antrian, waktu_mulai, waktu_selesai;
 
@@ -78,6 +78,7 @@ const regisAntrian = async (req, res, next) => {
         const kodeUnik = await generateUniqueKodeUnik(nama);
 
         const newPatient = new Patient({
+            jadwal: jadwal._id,
             nomor_antrian,
             nama,
             umur,
@@ -105,6 +106,7 @@ const regisAntrian = async (req, res, next) => {
             status: savedPatient.status,
             waktu_mulai: moment(waktu_mulai).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm:ss'),
             waktu_selesai: moment(waktu_selesai).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm:ss'),
+            tanggal: moment(jadwal.tanggal).tz('Asia/Jakarta').format('YYYY-MM-DD'),
             _id: savedPatient._id,
             createdAt: savedPatient.createdAt,
             updatedAt: savedPatient.updatedAt,
@@ -116,7 +118,6 @@ const regisAntrian = async (req, res, next) => {
         next(error);
     }
 };
-
 
 // Update patient appointment times
 const updateWaktuPasien = async (currentAntrian) => {
@@ -246,30 +247,48 @@ const mulai_antrian = async (req, res, next) => {
 // Function to get all queue data
 const getAllAntrian = async (req, res, next) => {
     try {
-        const jadwal = await Jadwal.findOne().sort({ createdAt: -1 }).lean();
+        // Cari jadwal yang masih memiliki status 'open'
+        const jadwal = await Jadwal.findOne({ status: 'open' }).lean();
 
         if (!jadwal) {
-            return sendResponse(404, null, 'Jadwal tidak ditemukan', res);
+            return sendResponse(404, null, 'Tidak ada jadwal dengan status open', res);
         }
 
-        const pasienList = await Patient.find({}).lean();
+        // Ambil daftar antrian dari jadwal yang statusnya 'open'
+        const antrianWithPatientDetails = [];
 
-        const antrianWithPatientDetails = jadwal.antrian.map(antrian => {
-            const pasien = pasienList.find(p => p.nomor_antrian === antrian.nomor_antrian) || {};
-            return {
+        for (const antrian of jadwal.antrian) {
+            const pasien = await Patient.findOne({
                 nomor_antrian: antrian.nomor_antrian,
-                kode_unik: pasien.kode_unik || '',
-                waktu_mulai: moment(antrian.waktu_mulai).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm:ss'),
-                waktu_selesai: moment(antrian.waktu_selesai).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm:ss'),
-                status: pasien.status || 'unknown'
-            };
-        });
+                jadwal: jadwal._id
+            }).lean();
 
-        sendResponse(200, antrianWithPatientDetails, 'Data antrian berhasil diambil', res);
+            if (!pasien) {
+                antrianWithPatientDetails.push({
+                    nomor_antrian: antrian.nomor_antrian,
+                    kode_unik: '',
+                    waktu_mulai: moment(antrian.waktu_mulai).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm:ss'),
+                    waktu_selesai: moment(antrian.waktu_selesai).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm:ss'),
+                    status: 'unknown'
+                });
+            } else {
+                antrianWithPatientDetails.push({
+                    nomor_antrian: antrian.nomor_antrian,
+                    kode_unik: pasien.kode_unik || '',
+                    waktu_mulai: moment(antrian.waktu_mulai).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm:ss'),
+                    waktu_selesai: moment(antrian.waktu_selesai).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm:ss'),
+                    status: pasien.status || 'unknown'
+                });
+            }
+        }
+
+        sendResponse(200, antrianWithPatientDetails, 'Data antrian berdasarkan jadwal open berhasil diambil', res);
     } catch (error) {
         next(error);
     }
 };
+
+
 
 // Function to get queue position for a given WhatsApp number
 const antrianBerapa = async (req, res, next) => {

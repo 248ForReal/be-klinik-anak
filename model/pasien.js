@@ -23,6 +23,11 @@ const patientSchema = new Schema(
       type: String,
       required: true
     },
+    jadwal: {
+      type: Schema.Types.ObjectId,
+      ref: 'Jadwal',
+      required: true
+    },
     nomor_antrian: {
       type: Number,
       required: true

@@ -9,13 +9,36 @@ const path = require('path');
 
 const getAllAntrian = async (req, res, next) => {
     try {
-        const allAntrian = await Patient.find().sort({ nomor_antrian: 1 });
+        // Cari semua jadwal dengan status 'open'
+        const openJadwal = await Jadwal.find({ status: 'open' });
 
-        sendResponse(200, allAntrian, 'Data semua antrian', res);
+        // Ambil ID dari jadwal yang berstatus 'open'
+        const openJadwalIds = openJadwal.map(jadwal => jadwal._id);
+
+        // Cari semua pasien yang memiliki jadwal dengan ID yang sama dengan jadwal 'open'
+        const allAntrian = await Patient.find({ jadwal: { $in: openJadwalIds } }).sort({ nomor_antrian: 1 });
+
+        // Format data to include all required fields
+        const formattedAntrian = allAntrian.map(patient => ({
+            nama: patient.nama,
+            umur: patient.umur,
+            alamat: patient.alamat,
+            jenis_kelamin: patient.jenis_kelamin,
+            no_wa: patient.no_wa,
+            jadwal: patient.jadwal,
+            nomor_antrian: patient.nomor_antrian,
+            kode_unik: patient.kode_unik,
+            status: patient.status,
+            createdAt: patient.createdAt,
+            updatedAt: patient.updatedAt
+        }));
+
+        sendResponse(200, formattedAntrian, 'Data semua antrian dengan jadwal open', res);
     } catch (error) {
         next(error);
     }
 };
+
 
 
 const getPatientCounts = async (req, res, next) => {
@@ -151,77 +174,114 @@ const tukarAntrianPasien = async (req, res, next) => {
 
 
 
-
 const exportPasien = async (req, res, next) => {
     try {
-        const startOfWeek = moment().tz('Asia/Jakarta').startOf('isoWeek');
-        const endOfWeek = moment(startOfWeek).endOf('isoWeek');
+        const { startDate, endDate } = req.body;
 
-        // Temukan pasien yang selesai dalam seminggu terakhir
-        const finishedPatients = await Patient.find({
-            status: 'selesai',
-            updatedAt: {
-                $gte: startOfWeek.toDate(),
-                $lt: endOfWeek.toDate()
+        // Parse dates and set time zone
+        const start = moment.tz(startDate, 'Asia/Jakarta').startOf('day');
+        const end = moment.tz(endDate, 'Asia/Jakarta').endOf('day');
+
+        // Find closed schedules within the given date range
+        const closedSchedules = await Jadwal.find({
+            status: 'closed',
+            tanggal: {
+                $gte: start.toDate(),
+                $lt: end.toDate()
             }
         });
 
-        if (finishedPatients.length === 0) {
-            return sendResponse(404, null, 'Tidak ada pasien yang selesai dalam seminggu terakhir', res);
+        if (closedSchedules.length === 0) {
+            return sendResponse(404, null, 'Tidak ada jadwal yang ditutup dalam periode yang dipilih', res);
         }
 
-        // Buat workbook baru
-        const workbook = new ExcelJS.Workbook();
-        const worksheet = workbook.addWorksheet('Pasien Selesai Seminggu');
+        const scheduleIds = closedSchedules.map(schedule => schedule._id);
 
-        // Definisikan kolom
-        worksheet.columns = [
-            { header: 'Nama', key: 'nama', width: 30 },
-            { header: 'Umur', key: 'umur', width: 10 },
-            { header: 'Alamat', key: 'alamat', width: 30 },
-            { header: 'Jenis Kelamin', key: 'jenis_kelamin', width: 15 },
-            { header: 'No WA', key: 'no_wa', width: 20 },
-            { header: 'Nomor Antrian', key: 'nomor_antrian', width: 15 },
-            { header: 'Kode Unik', key: 'kode_unik', width: 15 },
-            { header: 'Status', key: 'status', width: 15 },
-            { header: 'Tanggal Selesai', key: 'updatedAt', width: 20 }
-        ];
-
-        // Tambahkan baris data
-        finishedPatients.forEach(patient => {
-            worksheet.addRow({
-                nama: patient.nama,
-                umur: patient.umur,
-                alamat: patient.alamat,
-                jenis_kelamin: patient.jenis_kelamin,
-                no_wa: patient.no_wa,
-                nomor_antrian: patient.nomor_antrian,
-                kode_unik: patient.kode_unik,
-                status: patient.status,
-                updatedAt: moment(patient.updatedAt).format('YYYY-MM-DD HH:mm:ss')
-            });
-        });
-
-        // Buat file Excel
-        const exportPath = path.join(__dirname, '..', 'exports', `Pasien_Selesai_Seminggu_${moment().format('YYYYMMDDHHmmss')}.xlsx`);
-        await workbook.xlsx.writeFile(exportPath);
-
-        // Hapus data pasien yang telah diekspor
-        await Patient.deleteMany({
+        // Find patients with the closed schedules and status 'selesai'
+        const finishedPatients = await Patient.find({
             status: 'selesai',
-            updatedAt: {
-                $gte: startOfWeek.toDate(),
-                $lt: endOfWeek.toDate()
-            }
-        });
+            jadwal: { $in: scheduleIds }
+        }).populate('jadwal');
 
-        // Kirim respon dengan link download file Excel
-        sendResponse(200, { file: exportPath }, 'Data pasien berhasil diekspor ke Excel', res);
+        if (finishedPatients.length === 0) {
+            return sendResponse(404, null, 'Tidak ada pasien yang selesai dalam periode yang dipilih', res);
+        }
+
+        // Prepare response data
+        const responseData = finishedPatients.map(patient => ({
+            nama: patient.nama,
+            umur: patient.umur,
+            alamat: patient.alamat,
+            jenis_kelamin: patient.jenis_kelamin,
+            no_wa: patient.no_wa,
+            nomor_antrian: patient.nomor_antrian,
+            kode_unik: patient.kode_unik,
+            status: patient.status,
+            tanggal_jadwal: moment(patient.jadwal.tanggal).tz('Asia/Jakarta').format('YYYY-MM-DD')
+        }));
+
+        sendResponse(200, responseData, 'Data pasien berhasil diambil', res);
+
+        // Delete the schedules and associated patients
+        await Patient.deleteMany({ jadwal: { $in: scheduleIds } });
+        await Jadwal.deleteMany({ _id: { $in: scheduleIds } });
+
     } catch (error) {
         next(error);
     }
 };
 
+const getPaseienSelesai = async (req, res, next) => {
+    try {
+        const { startDate, endDate } = req.body;
+
+        // Parse dates and set time zone
+        const start = moment.tz(startDate, 'Asia/Jakarta').startOf('day');
+        const end = moment.tz(endDate, 'Asia/Jakarta').endOf('day');
+
+        // Find closed schedules within the given date range
+        const closedSchedules = await Jadwal.find({
+            status: 'closed',
+            tanggal: {
+                $gte: start.toDate(),
+                $lt: end.toDate()
+            }
+        });
+
+        if (closedSchedules.length === 0) {
+            return sendResponse(404, null, 'Tidak ada jadwal yang ditutup dalam periode yang dipilih', res);
+        }
+
+        const scheduleIds = closedSchedules.map(schedule => schedule._id);
+
+        // Find patients with the closed schedules and status 'selesai'
+        const finishedPatients = await Patient.find({
+            status: 'selesai',
+            jadwal: { $in: scheduleIds }
+        }).populate('jadwal');
+
+        if (finishedPatients.length === 0) {
+            return sendResponse(404, null, 'Tidak ada pasien yang selesai dalam periode yang dipilih', res);
+        }
+
+        // Prepare response data
+        const responseData = finishedPatients.map(patient => ({
+            nama: patient.nama,
+            umur: patient.umur,
+            alamat: patient.alamat,
+            jenis_kelamin: patient.jenis_kelamin,
+            no_wa: patient.no_wa,
+            nomor_antrian: patient.nomor_antrian,
+            kode_unik: patient.kode_unik,
+            status: patient.status,
+            tanggal_jadwal: moment(patient.jadwal.tanggal).tz('Asia/Jakarta').format('YYYY-MM-DD')
+        }));
+
+        sendResponse(200, responseData, 'Data pasien berhasil diambil', res);
+    } catch (error) {
+        next(error);
+    }
+};
 
 const searchPatients = async (req, res, next) => {
     const { query } = req.query;
@@ -250,5 +310,6 @@ module.exports = {
     getPatientCounts,
     getFinishedPatientsToday,
     exportPasien,
+    getPaseienSelesai,
     searchPatients
 };
