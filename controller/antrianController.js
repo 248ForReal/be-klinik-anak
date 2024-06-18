@@ -155,10 +155,11 @@ const mulai_antrian = async (req, res, next) => {
     try {
         const { nomor_antrian } = req.params;
 
-        const jadwal = await Jadwal.findOne({ 'antrian.nomor_antrian': nomor_antrian });
+        // Temukan jadwal terbaru dengan status 'open'
+        const jadwal = await Jadwal.findOne({ status: 'open' }).sort({ createdAt: -1 });
 
         if (!jadwal) {
-            return sendResponse(404, null, "Data antrian tidak ditemukan", res);
+            return sendResponse(404, null, "Tidak ada jadwal dengan status open", res);
         }
 
         const antrian = jadwal.antrian.find(item => item.nomor_antrian === parseInt(nomor_antrian));
@@ -167,7 +168,7 @@ const mulai_antrian = async (req, res, next) => {
             return sendResponse(404, null, "Data antrian tidak ditemukan", res);
         }
 
-        const patient = await Patient.findOne({ nomor_antrian });
+        const patient = await Patient.findOne({ nomor_antrian, jadwal: jadwal._id });
 
         if (!patient) {
             return sendResponse(404, null, "Data pasien tidak ditemukan", res);
@@ -289,13 +290,19 @@ const getAllAntrian = async (req, res, next) => {
 };
 
 
-
-// Function to get queue position for a given WhatsApp number
 const antrianBerapa = async (req, res, next) => {
     const { no_wa } = req.params;
 
     try {
-        const dataPasien = await Patient.findOne({ no_wa });
+        // Temukan jadwal terbaru dengan status 'open'
+        const jadwalTerbaru = await Jadwal.findOne({ status: 'open' }).sort({ createdAt: -1 });
+
+        if (!jadwalTerbaru) {
+            return sendResponse(404, null, 'Tidak ada jadwal dengan status open', res);
+        }
+
+        // Cari pasien berdasarkan nomor WhatsApp dan jadwal terbaru
+        const dataPasien = await Patient.findOne({ no_wa, jadwal: jadwalTerbaru._id });
 
         if (dataPasien) {
             const antrianBerapaLagi = dataPasien.nomor_antrian;
@@ -307,7 +314,7 @@ const antrianBerapa = async (req, res, next) => {
 
             sendResponse(200, response, `Nomor WA ${no_wa} memiliki nomor antrian ke-${antrianBerapaLagi}`, res);
         } else {
-            sendResponse(404, null, `Nomor WA ${no_wa} tidak ditemukan`, res);
+            sendResponse(404, null, `Nomor WA ${no_wa} tidak ditemukan untuk jadwal terbaru`, res);
         }
     } catch (err) {
         next(err);

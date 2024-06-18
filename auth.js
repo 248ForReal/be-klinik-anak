@@ -35,14 +35,21 @@ app.post('/login', async (req, res) => {
             return;
         }
 
-        const foundUser = await User.findOne({ username });
+        const foundUser = await User.findOne({ username }).lean(); // Use .lean() to get a plain JavaScript object
         if (foundUser) {
             const match = await bcrypt.compare(password, foundUser.password); 
             if (match) {
                 req.session.user = foundUser; 
                 res.cookie('user', foundUser._id.toString(), { maxAge: 14 * 24 * 60 * 60 * 1000, httpOnly: true }); 
                 loggedInUsers.add(username); 
-                respon(200, null, 'Login berhasil', res);
+
+                const userResponse = {
+                    name: foundUser.name,
+                    role: foundUser.role,
+                    username: foundUser.username
+                };
+
+                respon(200, userResponse, 'Login berhasil', res);
             } else {
                 respon(401, null, 'Login gagal: username atau kata sandi salah', res);
             }
@@ -54,6 +61,7 @@ app.post('/login', async (req, res) => {
         respon(500, null, 'Terjadi kesalahan saat login', res);
     }
 });
+
 
 app.get('/profile', (req, res) => {
     if (req.session.user) {

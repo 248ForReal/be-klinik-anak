@@ -9,31 +9,49 @@ const path = require('path');
 
 const getAllAntrian = async (req, res, next) => {
     try {
-        // Cari semua jadwal dengan status 'open'
-        const openJadwal = await Jadwal.find({ status: 'open' });
+        // Cari jadwal yang masih memiliki status 'open'
+        const jadwal = await Jadwal.findOne({ status: 'open' }).lean();
 
-        // Ambil ID dari jadwal yang berstatus 'open'
-        const openJadwalIds = openJadwal.map(jadwal => jadwal._id);
+        if (!jadwal) {
+            return sendResponse(404, null, 'Tidak ada jadwal dengan status open', res);
+        }
 
-        // Cari semua pasien yang memiliki jadwal dengan ID yang sama dengan jadwal 'open'
-        const allAntrian = await Patient.find({ jadwal: { $in: openJadwalIds } }).sort({ nomor_antrian: 1 });
+        // Ambil daftar antrian dari jadwal yang statusnya 'open'
+        const antrianWithPatientDetails = [];
 
-        // Format data to include all required fields
-        const formattedAntrian = allAntrian.map(patient => ({
-            nama: patient.nama,
-            umur: patient.umur,
-            alamat: patient.alamat,
-            jenis_kelamin: patient.jenis_kelamin,
-            no_wa: patient.no_wa,
-            jadwal: patient.jadwal,
-            nomor_antrian: patient.nomor_antrian,
-            kode_unik: patient.kode_unik,
-            status: patient.status,
-            createdAt: patient.createdAt,
-            updatedAt: patient.updatedAt
-        }));
+        for (const antrian of jadwal.antrian) {
+            const pasien = await Patient.findOne({
+                nomor_antrian: antrian.nomor_antrian,
+                jadwal: jadwal._id
+            }).lean();
 
-        sendResponse(200, formattedAntrian, 'Data semua antrian dengan jadwal open', res);
+            if (!pasien) {
+                antrianWithPatientDetails.push({
+                    nomor_antrian: antrian.nomor_antrian,
+                    kode_unik: '',
+                    waktu_mulai: moment(antrian.waktu_mulai).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm:ss'),
+                    waktu_selesai: moment(antrian.waktu_selesai).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm:ss'),
+                    status: 'unknown',
+                    createdAt: moment(antrian.createdAt).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm:ss')
+                });
+            } else {
+                antrianWithPatientDetails.push({
+                    nama: pasien.nama,
+                    umur: pasien.umur,
+                    alamat: pasien.alamat,
+                    jenis_kelamin: pasien.jenis_kelamin,
+                    no_wa: pasien.no_wa,
+                    jadwal: pasien.jadwal,
+                    nomor_antrian: pasien.nomor_antrian,
+                    kode_unik: pasien.kode_unik,
+                    status: pasien.status,
+                    createdAt: moment(pasien.createdAt).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm:ss'),
+                    updatedAt: moment(pasien.updatedAt).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm:ss')
+                });
+            }
+        }
+
+        sendResponse(200, antrianWithPatientDetails, 'Data semua antrian dengan jadwal open', res);
     } catch (error) {
         next(error);
     }
