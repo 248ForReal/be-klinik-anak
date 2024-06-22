@@ -154,8 +154,6 @@ let lastElapsedTime = 0;
 const mulai_antrian = async (req, res, next) => {
     try {
         const { nomor_antrian } = req.params;
-
-        // Temukan jadwal terbaru dengan status 'open'
         const jadwal = await Jadwal.findOne({ status: 'open' }).sort({ createdAt: -1 });
 
         if (!jadwal) {

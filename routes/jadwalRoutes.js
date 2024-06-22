@@ -10,10 +10,10 @@ const {
 } = require('../controller/jadwalController');
 
 
-router.post('/jadwal', createJadwal);
-router.get('/jadwal', getAllJadwal);
-router.delete('/jadwal/:id', deleteJadwal);
-router.put('/jadwal/close/:id', closeJadwal);
-router.post('/jadwal/antrian/:id', addAntrian);
+router.post('/jadwal', createJadwal,checkAdminRole, checkSuperAdminRole);
+router.get('/jadwal', getAllJadwal,checkAdminRole, checkSuperAdminRole);
+router.delete('/jadwal/:id', deleteJadwal,checkAdminRole, checkSuperAdminRole);
+router.put('/jadwal/close/:id', closeJadwal,checkAdminRole, checkSuperAdminRole);
+router.post('/jadwal/antrian/:id', addAntrian,checkAdminRole, checkSuperAdminRole);
 
 module.exports = router;

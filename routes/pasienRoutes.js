@@ -10,18 +10,19 @@ const { editPasien,
     tukarAntrianPasien2,
     getPaseienSelesai,
     searchPatients } = require('../controller/pasienController');
+const { checkAdminRole, checkSuperAdminRole } = require('../middleware/chekin');
 
 
-router.put('/pasien/:kode_unik', editPasien);
-router.delete('/pasien/:kode_unik', hapusPasien);
-router.post('/pasien/update', tukarAntrianPasien);
-router.get('/pasien', getAllAntrian);
-router.get('/pasien/jumlah', getPatientCounts);
-router.get('/pasien/selesai', getFinishedPatientsToday);
-router.post('/pasien/export', exportPasien);
-router.post('/pasien/selesai', getPaseienSelesai);
-router.get('/pasien/search', searchPatients);
-router.post('/pasien/tukaran', tukarAntrianPasien2);
+router.put('/pasien/:kode_unik', editPasien,checkAdminRole, checkSuperAdminRole );
+router.delete('/pasien/:kode_unik', hapusPasien,checkAdminRole, checkSuperAdminRole );
+router.post('/pasien/update', tukarAntrianPasien,checkAdminRole, checkSuperAdminRole );
+router.get('/pasien', getAllAntrian,checkAdminRole, checkSuperAdminRole );
+router.get('/pasien/jumlah', getPatientCounts,checkAdminRole, checkSuperAdminRole );
+router.get('/pasien/selesai', getFinishedPatientsToday,checkAdminRole, checkSuperAdminRole );
+router.post('/pasien/export', exportPasien,checkSuperAdminRole );
+router.post('/pasien/selesai', getPaseienSelesai,checkSuperAdminRole );
+router.get('/pasien/search', searchPatients,checkAdminRole, checkSuperAdminRole );
+router.post('/pasien/tukaran', tukarAntrianPasien2,checkAdminRole, checkSuperAdminRole );
 
 
 
