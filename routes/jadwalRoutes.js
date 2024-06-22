@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { checkAdminRole, checkSuperAdminRole } = require('../middleware/chekin');
+const { checkAdminRole, checkSuperAdminRole, isLoggedIn } = require('../middleware/chekin');
 const {
   createJadwal,
   getAllJadwal,
@@ -9,11 +9,10 @@ const {
   addAntrian
 } = require('../controller/jadwalController');
 
-
-router.post('/jadwal', createJadwal,checkAdminRole, checkSuperAdminRole);
-router.get('/jadwal', getAllJadwal,checkAdminRole, checkSuperAdminRole);
-router.delete('/jadwal/:id', deleteJadwal,checkAdminRole, checkSuperAdminRole);
-router.put('/jadwal/close/:id', closeJadwal,checkAdminRole, checkSuperAdminRole);
-router.post('/jadwal/antrian/:id', addAntrian,checkAdminRole, checkSuperAdminRole);
+router.post('/jadwal', isLoggedIn, createJadwal);
+router.get('/jadwal', isLoggedIn, getAllJadwal);
+router.delete('/jadwal/:id', isLoggedIn,  deleteJadwal);
+router.put('/jadwal/close/:id', isLoggedIn,  closeJadwal);
+router.post('/jadwal/antrian/:id', isLoggedIn, addAntrian);
 
 module.exports = router;

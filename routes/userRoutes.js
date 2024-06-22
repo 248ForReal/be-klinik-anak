@@ -9,10 +9,10 @@ const {
 } = require('../controller/userController');
 const { checkAdminRole, checkSuperAdminRole } = require('../middleware/chekin');
 
-router.post('/users', createUser, checkSuperAdminRole);
-router.get('/users', getAllUsers, checkSuperAdminRole);
-router.get('/users/:id', getUserById, checkSuperAdminRole);
-router.put('/users/:id', updateUser, checkSuperAdminRole);
-router.delete('/users/:id', deleteUser, checkSuperAdminRole);
+router.post('/users', createUser);
+router.get('/users', getAllUsers);
+router.get('/users/:id', getUserById);
+router.put('/users/:id', updateUser);
+router.delete('/users/:id', deleteUser);
 
 module.exports = router;

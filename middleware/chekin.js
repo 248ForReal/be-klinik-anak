@@ -1,8 +1,9 @@
+const User  = require('../model/user')
 const respon = require('../respon');
 
 
 const isLoggedIn = (req, res, next) => {
-    if (req.session.user) {
+    if (!req.session.user) {
       next();
     } else {
       respon(401, null, 'Anda harus masuk untuk mengakses ini', res);

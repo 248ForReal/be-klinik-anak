@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const { editPasien, 
+const {
+    editPasien, 
     hapusPasien,
     tukarAntrianPasien, 
     getAllAntrian,
@@ -9,21 +10,19 @@ const { editPasien,
     getFinishedPatientsToday,
     tukarAntrianPasien2,
     getPaseienSelesai,
-    searchPatients } = require('../controller/pasienController');
-const { checkAdminRole, checkSuperAdminRole } = require('../middleware/chekin');
+    searchPatients
+} = require('../controller/pasienController');
+const { checkAdminRole, checkSuperAdminRole, isLoggedIn } = require('../middleware/chekin');
 
-
-router.put('/pasien/:kode_unik', editPasien,checkAdminRole, checkSuperAdminRole );
-router.delete('/pasien/:kode_unik', hapusPasien,checkAdminRole, checkSuperAdminRole );
-router.post('/pasien/update', tukarAntrianPasien,checkAdminRole, checkSuperAdminRole );
-router.get('/pasien', getAllAntrian,checkAdminRole, checkSuperAdminRole );
-router.get('/pasien/jumlah', getPatientCounts,checkAdminRole, checkSuperAdminRole );
-router.get('/pasien/selesai', getFinishedPatientsToday,checkAdminRole, checkSuperAdminRole );
-router.post('/pasien/export', exportPasien,checkSuperAdminRole );
-router.post('/pasien/selesai', getPaseienSelesai,checkSuperAdminRole );
-router.get('/pasien/search', searchPatients,checkAdminRole, checkSuperAdminRole );
-router.post('/pasien/tukaran', tukarAntrianPasien2,checkAdminRole, checkSuperAdminRole );
-
-
+router.put('/pasien/:kode_unik', isLoggedIn,  editPasien);
+router.delete('/pasien/:kode_unik', isLoggedIn, hapusPasien);
+router.post('/pasien/update', isLoggedIn, tukarAntrianPasien);
+router.get('/pasien', isLoggedIn,  getAllAntrian);
+router.get('/pasien/jumlah', isLoggedIn,  getPatientCounts);
+router.get('/pasien/selesai', isLoggedIn, getFinishedPatientsToday);
+router.post('/pasien/export', isLoggedIn, exportPasien);
+router.post('/pasien/selesai', isLoggedIn, getPaseienSelesai);
+router.get('/pasien/search', isLoggedIn,searchPatients);
+router.post('/pasien/tukaran', isLoggedIn,  tukarAntrianPasien2);
 
 module.exports = router;
