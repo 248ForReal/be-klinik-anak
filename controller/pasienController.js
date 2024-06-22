@@ -191,6 +191,60 @@ const tukarAntrianPasien = async (req, res, next) => {
 };
 
 
+const tukarAntrianPasien2 = async (req, res, next) => {
+    const requests = req.body; // Array of { kode_unik, nomor_antrian }
+
+    try {
+        // Validate request body
+        if (!Array.isArray(requests) || requests.length < 2) {
+            return sendResponse(400, null, 'Invalid request. Must provide an array with at least two elements.', res);
+        }
+
+        // Find all patients by their unique codes
+        const uniqueCodes = requests.map(request => request.kode_unik);
+        const patients = await Patient.find({ kode_unik: { $in: uniqueCodes } });
+
+        if (patients.length !== uniqueCodes.length) {
+            return sendResponse(404, null, 'One or more patients not found', res);
+        }
+
+        // Create a map of kode_unik to nomor_antrian
+        const antrianMap = requests.reduce((acc, request) => {
+            acc[request.kode_unik] = request.nomor_antrian;
+            return acc;
+        }, {});
+
+        // Update the patients' queue numbers
+        const updatedPatients = patients.map(patient => {
+            patient.nomor_antrian = antrianMap[patient.kode_unik];
+            return patient;
+        });
+
+        // Save the updated patients
+        await Promise.all(updatedPatients.map(patient => patient.save()));
+
+        // Prepare the response data
+        const responseData = updatedPatients.map(patient => ({
+            kode_unik: patient.kode_unik,
+            nomor_antrian: patient.nomor_antrian,
+            nama: patient.nama,
+            umur: patient.umur,
+            alamat: patient.alamat,
+            jenis_kelamin: patient.jenis_kelamin,
+            no_wa: patient.no_wa,
+            status: patient.status,
+            jadwal: patient.jadwal,
+            createdAt: patient.createdAt,
+            updatedAt: patient.updatedAt
+        }));
+
+        sendResponse(200, responseData, 'Nomor antrian pasien berhasil ditukar', res);
+    } catch (error) {
+        next(error);
+    }
+};
+
+
 
 const exportPasien = async (req, res, next) => {
     try {
@@ -329,5 +383,6 @@ module.exports = {
     getFinishedPatientsToday,
     exportPasien,
     getPaseienSelesai,
+    tukarAntrianPasien2,
     searchPatients
 };

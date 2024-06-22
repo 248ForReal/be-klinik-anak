@@ -33,8 +33,6 @@ const createJadwal = async (req, res) => {
     });
 
     const jadwalTerbuat = await jadwalBaru.save();
-
-    // Konversi waktu ke WIB sebelum mengirimkan respons
     const responseJadwal = {
       ...jadwalTerbuat._doc,
       tanggal: moment(jadwalTerbuat.tanggal).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm'),

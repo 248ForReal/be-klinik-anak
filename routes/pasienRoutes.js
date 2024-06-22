@@ -7,6 +7,7 @@ const { editPasien,
     getPatientCounts,
     exportPasien,
     getFinishedPatientsToday,
+    tukarAntrianPasien2,
     getPaseienSelesai,
     searchPatients } = require('../controller/pasienController');
 
@@ -20,6 +21,7 @@ router.get('/pasien/selesai', getFinishedPatientsToday);
 router.post('/pasien/export', exportPasien);
 router.post('/pasien/selesai', getPaseienSelesai);
 router.get('/pasien/search', searchPatients);
+router.post('/pasien/tukaran', tukarAntrianPasien2);
 
 
 
