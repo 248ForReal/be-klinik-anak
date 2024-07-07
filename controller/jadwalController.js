@@ -64,7 +64,7 @@ const getAllJadwal = async (req, res) => {
         status: jadwal.status,
         jumlah_antrian: jadwal.antrian.length
       }));
-      res.status(200).json(response);
+      sendResponse(200, response, 'jadwal ditemukan', res);
     } else {
       const resultWIB = jadwalList.map(jadwal => ({
         _id: jadwal._id,
@@ -79,7 +79,8 @@ const getAllJadwal = async (req, res) => {
           _id: antrian._id
         }))
       }));
-      res.status(200).json(resultWIB);
+
+      sendResponse(200, resultWIB, 'jadwal ditemukan', res);
     }
   } catch (error) {
     res.status(500).json({ message: error.message });
