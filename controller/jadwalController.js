@@ -71,6 +71,7 @@ const getAllJadwal = async (req, res) => {
         nomor_id: jadwal.nomor_id,
         tanggal: moment(jadwal.tanggal).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm'),
         jam_buka: moment(jadwal.jam_buka).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm'),
+        jam_tutup: jadwal.jam_tutup ? moment(jadwal.jam_tutup).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm') : null,
         status: jadwal.status,
         antrian: jadwal.antrian.map(antrian => ({
           nomor_antrian: antrian.nomor_antrian,
