@@ -3,12 +3,7 @@ const response = (status_code, data, message, res) => {
         ResponseData:{
         status_code: status_code,
         data,
-        message,},
-        paginations: {
-            prev: "",
-            next: "",
-            max: ""
-        }
+        message,}
     })
 }
 

@@ -6,7 +6,6 @@ const createJadwal = async (req, res) => {
   try {
     const { tanggal, jam_buka } = req.body;
 
-    // Periksa apakah masih ada jadwal dengan status 'open'
     const openJadwal = await Jadwal.findOne({ status: 'open' });
 
     if (openJadwal) {
@@ -47,36 +46,45 @@ const createJadwal = async (req, res) => {
   }
 };
 
+// Function to get all Jadwal with optional status filter
 const getAllJadwal = async (req, res) => {
   try {
-    const result = await Jadwal.find();
+    const statusFilter = req.query.status;
+    const query = statusFilter ? { status: statusFilter } : {};
 
-    if (!result || result.length === 0) {
-      sendResponse(200, [], 'Get all jadwal - No data found', res);
-      return;
+    const jadwalList = await Jadwal.find(query).populate('antrian');
+
+    if (statusFilter && statusFilter === 'closed') {
+      const response = jadwalList.map(jadwal => ({
+        _id: jadwal._id,
+        nomor_id: jadwal.nomor_id,
+        tanggal: moment(jadwal.tanggal).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm'),
+        jam_buka: moment(jadwal.jam_buka).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm'),
+        jam_tutup: jadwal.jam_tutup ? moment(jadwal.jam_tutup).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm') : null,
+        status: jadwal.status,
+        jumlah_antrian: jadwal.antrian.length
+      }));
+      res.status(200).json(response);
+    } else {
+      const resultWIB = jadwalList.map(jadwal => ({
+        _id: jadwal._id,
+        nomor_id: jadwal.nomor_id,
+        tanggal: moment(jadwal.tanggal).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm'),
+        jam_buka: moment(jadwal.jam_buka).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm'),
+        status: jadwal.status,
+        antrian: jadwal.antrian.map(antrian => ({
+          nomor_antrian: antrian.nomor_antrian,
+          waktu_mulai: moment(antrian.waktu_mulai).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm'),
+          waktu_selesai: moment(antrian.waktu_selesai).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm'),
+          _id: antrian._id
+        }))
+      }));
+      res.status(200).json(resultWIB);
     }
-
-    const resultWIB = result.map(jadwal => ({
-      _id: jadwal._id,
-      nomor_id: jadwal.nomor_id,
-      tanggal: moment(jadwal.tanggal).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm'),
-      jam_buka: moment(jadwal.jam_buka).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm'),
-      status: jadwal.status,
-      antrian: jadwal.antrian.map(antrian => ({
-        nomor_antrian: antrian.nomor_antrian,
-        waktu_mulai: moment(antrian.waktu_mulai).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm'),
-        waktu_selesai: moment(antrian.waktu_selesai).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm'),
-        _id: antrian._id
-      }))
-    }));
-
-    sendResponse(200, resultWIB, 'Get all jadwal', res);
-  } catch (err) {
-    console.error('Error occurred while fetching all jadwal:', err);
-    sendResponse(404, null, 'Data not found', res);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 };
-
 
 const deleteJadwal = async (req, res) => {
   try {

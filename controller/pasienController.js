@@ -132,6 +132,8 @@ const editPasien = async (req, res, next) => {
     }
 };
 
+
+
 const hapusPasien = async (req, res, next) => {
     const { kode_unik } = req.params;
 
@@ -143,14 +145,19 @@ const hapusPasien = async (req, res, next) => {
         }
 
         const nomorAntrianDihapus = pasienYangAkanDihapus.nomor_antrian;
+        const jadwalTerbaru = await Jadwal.findOne({ status: 'open' }).sort({ tanggal: -1 });
+
+        if (!jadwalTerbaru) {
+            return sendResponse(404, null, 'Tidak ada jadwal yang tersedia dengan status "open"', res);
+        }
 
         // Temukan pasien dengan nomor antrian lebih besar dari pasien yang akan dihapus
-        const pasienLain = await Patient.findOne({ nomor_antrian: nomorAntrianDihapus + 1 });
+        const pasienLain = await Patient.find({ nomor_antrian: { $gt: nomorAntrianDihapus }, jadwal: jadwalTerbaru._id });
 
-        if (pasienLain) {
-            // Update nomor antrian pasien lain
-            pasienLain.nomor_antrian = nomorAntrianDihapus;
-            await pasienLain.save();
+        // Update nomor antrian pasien lain
+        for (let pasien of pasienLain) {
+            pasien.nomor_antrian -= 1;
+            await pasien.save();
         }
 
         // Hapus pasien yang dipilih
@@ -165,6 +172,7 @@ const hapusPasien = async (req, res, next) => {
         next(error);
     }
 };
+
 
 const tukarAntrianPasien = async (req, res, next) => {
     const { kode_unik1, kode_unik2 } = req.body;
@@ -245,7 +253,6 @@ const tukarAntrianPasien2 = async (req, res, next) => {
 };
 
 
-
 const exportPasien = async (req, res, next) => {
     try {
         const { startDate, endDate } = req.body;
@@ -253,6 +260,9 @@ const exportPasien = async (req, res, next) => {
         // Parse dates and set time zone
         const start = moment.tz(startDate, 'Asia/Jakarta').startOf('day');
         const end = moment.tz(endDate, 'Asia/Jakarta').endOf('day');
+
+        console.log(`Start Date: ${start.format()}`);
+        console.log(`End Date: ${end.format()}`);
 
         // Find closed schedules within the given date range
         const closedSchedules = await Jadwal.find({
@@ -263,6 +273,8 @@ const exportPasien = async (req, res, next) => {
             }
         });
 
+        console.log(`Closed Schedules: ${closedSchedules.length}`);
+
         if (closedSchedules.length === 0) {
             return sendResponse(404, null, 'Tidak ada jadwal yang ditutup dalam periode yang dipilih', res);
         }
@@ -271,9 +283,11 @@ const exportPasien = async (req, res, next) => {
 
         // Find patients with the closed schedules and status 'selesai'
         const finishedPatients = await Patient.find({
-            status: 'selesai',
+            status: 'Selesai',
             jadwal: { $in: scheduleIds }
         }).populate('jadwal');
+
+        console.log(`Finished Patients: ${finishedPatients.length}`);
 
         if (finishedPatients.length === 0) {
             return sendResponse(404, null, 'Tidak ada pasien yang selesai dalam periode yang dipilih', res);
@@ -303,6 +317,7 @@ const exportPasien = async (req, res, next) => {
     }
 };
 
+
 const getPaseienSelesai = async (req, res, next) => {
     try {
         const { startDate, endDate } = req.body;
@@ -328,7 +343,7 @@ const getPaseienSelesai = async (req, res, next) => {
 
         // Find patients with the closed schedules and status 'selesai'
         const finishedPatients = await Patient.find({
-            status: 'selesai',
+            status: 'Selesai',
             jadwal: { $in: scheduleIds }
         }).populate('jadwal');
 
