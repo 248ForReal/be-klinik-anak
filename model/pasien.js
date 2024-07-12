@@ -20,7 +20,7 @@ const patientSchema = new Schema(
       required: true
     },
     no_wa: {
-      type: String,
+      type: Number, 
       required: true
     },
     jadwal: {

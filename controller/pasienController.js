@@ -9,14 +9,13 @@ const path = require('path');
 
 const getAllAntrian = async (req, res, next) => {
     try {
-        // Cari jadwal yang masih memiliki status 'open'
+      
         const jadwal = await Jadwal.findOne({ status: 'open' }).lean();
 
         if (!jadwal) {
             return sendResponse(404, null, 'Tidak ada jadwal dengan status open', res);
         }
 
-        // Ambil daftar antrian dari jadwal yang statusnya 'open'
         const antrianWithPatientDetails = [];
 
         for (const antrian of jadwal.antrian) {
@@ -151,19 +150,16 @@ const hapusPasien = async (req, res, next) => {
             return sendResponse(404, null, 'Tidak ada jadwal yang tersedia dengan status "open"', res);
         }
 
-        // Temukan pasien dengan nomor antrian lebih besar dari pasien yang akan dihapus
+      
         const pasienLain = await Patient.find({ nomor_antrian: { $gt: nomorAntrianDihapus }, jadwal: jadwalTerbaru._id });
 
-        // Update nomor antrian pasien lain
+
         for (let pasien of pasienLain) {
             pasien.nomor_antrian -= 1;
             await pasien.save();
         }
 
-        // Hapus pasien yang dipilih
         const deletedPasien = await Patient.findOneAndDelete({ kode_unik });
-
-        // Hapus cookie dan session
         res.clearCookie('patientId');
         delete req.session.patient;
 
@@ -200,15 +196,13 @@ const tukarAntrianPasien = async (req, res, next) => {
 
 
 const tukarAntrianPasien2 = async (req, res, next) => {
-    const requests = req.body; // Array of { kode_unik, nomor_antrian }
+    const requests = req.body; 
 
     try {
-        // Validate request body
         if (!Array.isArray(requests) || requests.length < 2) {
             return sendResponse(400, null, 'Invalid request. Must provide an array with at least two elements.', res);
         }
 
-        // Find all patients by their unique codes
         const uniqueCodes = requests.map(request => request.kode_unik);
         const patients = await Patient.find({ kode_unik: { $in: uniqueCodes } });
 
@@ -216,22 +210,18 @@ const tukarAntrianPasien2 = async (req, res, next) => {
             return sendResponse(404, null, 'One or more patients not found', res);
         }
 
-        // Create a map of kode_unik to nomor_antrian
         const antrianMap = requests.reduce((acc, request) => {
             acc[request.kode_unik] = request.nomor_antrian;
             return acc;
         }, {});
 
-        // Update the patients' queue numbers
         const updatedPatients = patients.map(patient => {
             patient.nomor_antrian = antrianMap[patient.kode_unik];
             return patient;
         });
 
-        // Save the updated patients
         await Promise.all(updatedPatients.map(patient => patient.save()));
 
-        // Prepare the response data
         const responseData = updatedPatients.map(patient => ({
             kode_unik: patient.kode_unik,
             nomor_antrian: patient.nomor_antrian,
@@ -257,14 +247,12 @@ const exportPasien = async (req, res, next) => {
     try {
         const { startDate, endDate } = req.body;
 
-        // Parse dates and set time zone
         const start = moment.tz(startDate, 'Asia/Jakarta').startOf('day');
         const end = moment.tz(endDate, 'Asia/Jakarta').endOf('day');
 
         console.log(`Start Date: ${start.format()}`);
         console.log(`End Date: ${end.format()}`);
 
-        // Find closed schedules within the given date range
         const closedSchedules = await Jadwal.find({
             status: 'closed',
             tanggal: {
@@ -281,7 +269,6 @@ const exportPasien = async (req, res, next) => {
 
         const scheduleIds = closedSchedules.map(schedule => schedule._id);
 
-        // Find patients with the closed schedules and status 'selesai'
         const finishedPatients = await Patient.find({
             status: 'Selesai',
             jadwal: { $in: scheduleIds }
@@ -292,8 +279,6 @@ const exportPasien = async (req, res, next) => {
         if (finishedPatients.length === 0) {
             return sendResponse(404, null, 'Tidak ada pasien yang selesai dalam periode yang dipilih', res);
         }
-
-        // Prepare response data
         const responseData = finishedPatients.map(patient => ({
             nama: patient.nama,
             umur: patient.umur,
@@ -308,7 +293,6 @@ const exportPasien = async (req, res, next) => {
 
         sendResponse(200, responseData, 'Data pasien berhasil diambil', res);
 
-        // Delete the schedules and associated patients
         await Patient.deleteMany({ jadwal: { $in: scheduleIds } });
         await Jadwal.deleteMany({ _id: { $in: scheduleIds } });
 
@@ -322,11 +306,9 @@ const getPaseienSelesai = async (req, res, next) => {
     try {
         const { startDate, endDate } = req.body;
 
-        // Parse dates and set time zone
         const start = moment.tz(startDate, 'Asia/Jakarta').startOf('day');
         const end = moment.tz(endDate, 'Asia/Jakarta').endOf('day');
 
-        // Find closed schedules within the given date range
         const closedSchedules = await Jadwal.find({
             status: 'closed',
             tanggal: {
@@ -341,7 +323,6 @@ const getPaseienSelesai = async (req, res, next) => {
 
         const scheduleIds = closedSchedules.map(schedule => schedule._id);
 
-        // Find patients with the closed schedules and status 'selesai'
         const finishedPatients = await Patient.find({
             status: 'Selesai',
             jadwal: { $in: scheduleIds }
@@ -351,7 +332,6 @@ const getPaseienSelesai = async (req, res, next) => {
             return sendResponse(404, null, 'Tidak ada pasien yang selesai dalam periode yang dipilih', res);
         }
 
-        // Prepare response data
         const responseData = finishedPatients.map(patient => ({
             nama: patient.nama,
             umur: patient.umur,

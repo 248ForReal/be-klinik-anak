@@ -14,22 +14,10 @@ const jadwalSchema = new Schema({
   jam_buka: { type: Date, required: true },
   jam_tutup: { type: Date },
   antrian: [antrianSchema],
-  status: { type: String, enum: ['open', 'closed'], default: 'open' },
+  status: { type: String, enum: ['menunggu', 'open', 'closed'], default: 'menunggu' },
   createdAt: { type: Date, default: Date.now }
 }, {
   collection: 'jadwal'
-});
-
-// Middleware to set the timezone
-jadwalSchema.pre('save', function (next) {
-  const jakartaTime = moment.tz(Date.now(), 'Asia/Jakarta');
-  this.tanggal = moment(this.tanggal).tz('Asia/Jakarta').toDate();
-  this.jam_buka = moment(this.jam_buka).tz('Asia/Jakarta').toDate();
-  if (this.jam_tutup) {
-    this.jam_tutup = moment(this.jam_tutup).tz('Asia/Jakarta').toDate();
-  }
-  this.createdAt = jakartaTime.toDate();
-  next();
 });
 
 const Jadwal = mongoose.model('Jadwal', jadwalSchema);

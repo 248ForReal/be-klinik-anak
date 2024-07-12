@@ -1,10 +1,40 @@
 const Jadwal = require('../model/jadwal');
+const cron = require('node-cron');
 const sendResponse = require('../respon');
 const moment = require('moment-timezone');
 
+
+// Function to update the status of Jadwal based on the current time
+async function updateJadwalStatus() {
+  try {
+    const now = moment().tz('Asia/Jakarta');
+    const jadwals = await Jadwal.find({
+      $or: [
+        { status: 'menunggu', jam_buka: { $lte: now.toDate() } },
+        { status: 'open', jam_tutup: { $lte: now.toDate() } }
+      ]
+    });
+
+    jadwals.forEach(async (jadwal) => {
+      if (jadwal.status === 'menunggu' && now.isSameOrAfter(moment(jadwal.jam_buka).tz('Asia/Jakarta'))) {
+        jadwal.status = 'open';
+      } else if (jadwal.status === 'open' && now.isSameOrAfter(moment(jadwal.jam_tutup).tz('Asia/Jakarta'))) {
+        jadwal.status = 'closed';
+      }
+      await jadwal.save();
+    });
+  } catch (error) {
+    console.error('Error updating jadwal status:', error);
+  }
+}
+
+cron.schedule('* * * * *', updateJadwalStatus);
+
+console.log('Cron job started to update jadwal statuses');
+
 const createJadwal = async (req, res) => {
   try {
-    const { tanggal, jam_buka } = req.body;
+    const { tanggal, jam_buka, jam_tutup } = req.body;
 
     const openJadwal = await Jadwal.findOne({ status: 'open' });
 
@@ -18,17 +48,18 @@ const createJadwal = async (req, res) => {
       nomor_id = lastJadwal.nomor_id + 1;
     }
 
-    // Kombinasikan tanggal dan jam_buka menjadi satu string datetime dan set ke zona waktu WIB
     const datetimeBuka = `${tanggal} ${jam_buka}`;
-    const jamBukaWIB = moment.tz(datetimeBuka, 'YYYY-MM-DD HH:mm', 'Asia/Jakarta').toDate();
+    const datetimeTutup = `${tanggal} ${jam_tutup}`;
 
-    // Konversi tanggal ke WIB dan set ke awal hari (start of day) dalam format Date
+    const jamBukaWIB = moment.tz(datetimeBuka, 'YYYY-MM-DD HH:mm', 'Asia/Jakarta').toDate();
+    const jamTutupWIB = moment.tz(datetimeTutup, 'YYYY-MM-DD HH:mm', 'Asia/Jakarta').toDate();
     const tanggalWIB = moment.tz(tanggal, 'YYYY-MM-DD', 'Asia/Jakarta').startOf('day').toDate();
 
     const jadwalBaru = new Jadwal({
       nomor_id,
       tanggal: tanggalWIB,
-      jam_buka: jamBukaWIB
+      jam_buka: jamBukaWIB,
+      jam_tutup: jamTutupWIB
     });
 
     const jadwalTerbuat = await jadwalBaru.save();
@@ -36,6 +67,7 @@ const createJadwal = async (req, res) => {
       ...jadwalTerbuat._doc,
       tanggal: moment(jadwalTerbuat.tanggal).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm'),
       jam_buka: moment(jadwalTerbuat.jam_buka).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm'),
+      jam_tutup: moment(jadwalTerbuat.jam_tutup).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm'),
       createdAt: moment(jadwalTerbuat.createdAt).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm:ss'),
     };
 
@@ -45,6 +77,7 @@ const createJadwal = async (req, res) => {
     sendResponse(500, error, 'Terjadi kesalahan saat menambahkan jadwal', res);
   }
 };
+
 
 // Function to get all Jadwal with optional status filter
 const getAllJadwal = async (req, res) => {
@@ -119,7 +152,6 @@ const closeJadwal = async (req, res) => {
     jadwal.status = 'closed';
     const updatedJadwal = await jadwal.save();
 
-    // Konversi waktu ke WIB sebelum mengirimkan respons
     const responseJadwal = {
       ...updatedJadwal._doc,
       tanggal: moment(updatedJadwal.tanggal).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm'),
@@ -150,7 +182,7 @@ const addAntrian = async (req, res) => {
       return;
     }
 
-    const durasiAntrian = 20 * 60 * 1000; // 20 menit dalam milidetik
+    const durasiAntrian = 20 * 60 * 1000; 
     const lastAntrian = jadwal.antrian[jadwal.antrian.length - 1];
     const waktuMulai = lastAntrian
       ? moment.tz(lastAntrian.waktu_selesai, 'Asia/Jakarta').toDate()
@@ -166,7 +198,7 @@ const addAntrian = async (req, res) => {
     jadwal.antrian.push(antrianBaru);
     const updatedJadwal = await jadwal.save();
 
-    // Konversi waktu ke WIB sebelum mengirimkan respons
+
     const updatedJadwalWIB = {
       ...updatedJadwal._doc,
       tanggal: moment(updatedJadwal.tanggal).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm'),
