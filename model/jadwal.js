@@ -12,7 +12,7 @@ const jadwalSchema = new Schema({
   nomor_id: { type: Number, required: true },
   tanggal: { type: Date, required: true },
   jam_buka: { type: Date, required: true },
-  jam_tutup: { type: Date },
+  jam_tutup: { type: Date,required: true },
   antrian: [antrianSchema],
   status: { type: String, enum: ['menunggu', 'open', 'closed'], default: 'menunggu' },
   createdAt: { type: Date, default: Date.now }
